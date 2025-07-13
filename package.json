@@ -1,0 +1,13 @@
+{
+  "name": "android-chat-app",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "^14",
+    "react": "^18",
+    "react-dom": "^18"
+  }
+}

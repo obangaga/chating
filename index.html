@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oban Ganteng - Dashboard Karyawan</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <style>
+    /* ===== RESET & BASE ===== */
+    * {margin: 0; padding: 0; box-sizing: border-box;}
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: radial-gradient(circle at top, #1b1b1b 0%, #0d0d0d 100%);
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    /* ===== LOGIN OVERLAY ===== */
+    .login-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at top, #0a0a0a 0%, #000 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+    }
+    .login-form {
+      background: linear-gradient(145deg, #111, #1c1c1c);
+      padding: 40px;
+      border-radius: 15px;
+      border: 2px solid #00e0c6;
+      box-shadow: 0 0 30px rgba(0, 224, 198, 0.3);
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+    }
+    .login-title {
+      color: #00e0c6;
+      font-size: 1.8em;
+      margin-bottom: 10px;
+      text-shadow: 0 0 10px #00e0c6;
+    }
+    .login-subtitle {color: #ccc; margin-bottom: 25px;}
+    .login-input {
+      width: 100%;
+      padding: 15px;
+      margin: 10px 0;
+      background: #0a0a0a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 1em;
+      text-align: center;
+    }
+    .login-input:focus {
+      outline: none;
+      border-color: #00e0c6;
+      box-shadow: 0 0 10px rgba(0, 224, 198, 0.3);
+    }
+    .login-btn {
+      background: #00e0c6;
+      color: #0d0d0d;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 30px;
+      font-size: 1.1em;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin: 10px 5px;
+      width: 100%;
+    }
+    .login-btn:hover {
+      background: #00fff2;
+      box-shadow: 0 0 15px #00e0c6;
+      transform: scale(1.05);
+    }
+    .error-msg {
+      color: #ff6b6b;
+      margin-top: 10px;
+      display: none;
+    }
+    .karyawan-list {
+      margin-top: 15px;
+      font-size: 0.9em;
+      color: #888;
+      text-align: left;
+      max-height: 150px;
+      overflow-y: auto;
+      padding: 10px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+    }
+    .karyawan-item {
+      padding: 5px 0;
+      border-bottom: 1px solid #333;
+    }
+
+    /* ===== HEADER DENGAN TOMBOL LOGOUT ===== */
+    header {
+      width: 100%;
+      max-width: 1200px;
+      text-align: center;
+      padding: 20px 0;
+      background: linear-gradient(135deg, #1f1f1f, #292929);
+      border: 1px solid #333;
+      border-radius: 12px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+      margin-bottom: 25px;
+      position: relative;
+      display: none;
+    }
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+    }
+    .header-left {
+      text-align: left;
+      flex: 1;
+    }
+    .header-center {
+      text-align: center;
+      flex: 2;
+    }
+    .header-right {
+      text-align: right;
+      flex: 1;
+    }
+    .logout-btn {
+      background: #ff6b6b;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 20px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .logout-btn:hover {
+      background: #ff5252;
+      box-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+    }
+    .user-info {
+      color: #00e0c6;
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+    header h1 {color: #00e0c6; font-size: 2em; text-shadow: 0 0 8px #00e0c6; margin: 0;}
+    header p {color: #aaa; margin: 5px 0;}
+
+    /* ===== MAIN GRID LAYOUT ===== */
+    .main-content {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 20px;
+      width: 100%;
+      max-width: 1200px;
+      margin-bottom: 30px;
+      display: none;
+    }
+    @media (max-width: 768px) {
+      .main-content {
+        grid-template-columns: 1fr;
+        grid-template-rows: repeat(4, auto);
+      }
+    }
+
+    /* ===== CARD STYLES ===== */
+    .card {
+      background: linear-gradient(145deg, #111, #1c1c1c);
+      border-radius: 12px;
+      border: 1px solid #2a2a2a;
+      box-shadow: inset 0 0 10px rgba(255,255,255,0.05), 
+                  0 5px 15px rgba(0,0,0,0.7);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+    .input-section, .output-section {min-height: 400px;}
+    .new-section-1 {
+      grid-column: 1 / span 2;
+      min-height: 550px;
+      border-color: #4CAF50;
+    }
+    @media (max-width: 768px) {
+      .new-section-1 {grid-column: 1;}
+    }
+
+    h3 {color: #00e0c6; margin-bottom: 10px;}
+
+    /* ===== TEXTAREA & BUTTONS ===== */
+    textarea {
+      width: 100%;
+      flex-grow: 1;
+      background: #0f0f0f;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #d0d0d0;
+      font-family: 'Courier New', monospace;
+      padding: 12px;
+      resize: none;
+      margin-bottom: 15px;
+    }
+    .button-group {
+      margin-top: 15px;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    button {
+      background: #00e0c6;
+      color: #0d0d0d;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      padding: 10px 18px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    button:hover:not(:disabled) {
+      background: #00fff2;
+      box-shadow: 0 0 12px #00e0c6;
+      transform: scale(1.05);
+    }
+    button:disabled {opacity: 0.6; cursor: not-allowed;}
+
+    /* ===== OUTPUT SECTION ===== */
+    #formattedResult {
+      flex-grow: 1;
+      background: #0a0a0a;
+      border-radius: 8px;
+      border: 1px solid #333;
+      padding: 15px;
+      overflow-y: auto;
+      color: #ccc;
+    }
+
+    /* ===== CHAT SECTION ===== */
+    #chatMessages {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding: 15px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      margin-bottom: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .chat-message {
+      padding: 10px 15px;
+      border-radius: 15px;
+      max-width: 85%;
+      word-wrap: break-word;
+    }
+    .chat-message.system {
+      background: rgba(255, 152, 0, 0.2);
+      align-self: center;
+      border: 1px dashed #FF9800;
+    }
+    .chat-message.own {
+      background: linear-gradient(135deg, #4CAF50, #45a049);
+      align-self: flex-end;
+    }
+    .chat-message.other {
+      background: linear-gradient(135deg, #333, #444);
+      align-self: flex-start;
+    }
+    .chat-input-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    #chatInput {
+      flex-grow: 1;
+      padding: 10px;
+      background: #222;
+      border: 1px solid #4CAF50;
+      border-radius: 8px;
+      color: white;
+    }
+
+    /* ===== RUNNING TEXT ===== */
+    .running-text {
+      width: 100%;
+      max-width: 1200px;
+      margin: 30px auto;
+      padding: 15px;
+      background: black;
+      border-radius: 12px;
+      border: 1px solid #2a2a2a;
+      overflow: hidden;
+      display: none;
+    }
+    .marquee-content {
+      display: flex;
+      white-space: nowrap;
+      animation: marquee 5s linear infinite;
+      color: #FFA000;
+      font-weight: 600;
+      font-size: 2.2em;
+      text-shadow: 0 0 10px rgba(255, 160, 0, 0.8);
+    }
+    .marquee-span {
+      flex: 0 0 33.333%;
+      padding: 12px 0;
+      text-align: center;
+    }
+
+    /* ===== RESULT CARD ===== */
+    .single-card-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      padding: 20px;
+    }
+    .single-card {
+      background: linear-gradient(145deg, #0a1a1a, #0d2525);
+      border: 2px solid #00e0c6;
+      border-radius: 16px;
+      padding: 20px;
+      text-align: center;
+      width: 100%;
+      max-width: 300px;
+      box-shadow: 0 10px 30px rgba(0, 224, 198, 0.15);
+    }
+    .card-title {
+      color: #88ffec;
+      font-size: 1.2em;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .card-value {
+      color: #00fff2;
+      font-size: 2.2em;
+      font-weight: bold;
+      margin: 15px 0;
+      text-shadow: 0 0 15px rgba(0, 224, 198, 0.8);
+      background: linear-gradient(90deg, #00e0c6, #00fff2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* ===== LOADING OVERLAY ===== */
+    #loadingOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 10001;
+    }
+    .loading-spinner {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 25px;
+      position: relative;
+    }
+    .loading-spinner div {
+      position: absolute;
+      border-radius: 50%;
+    }
+
+    /* ===== FLOATING ELEMENTS ===== */
+    .floating-photo {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 120px;
+      height: 120px;
+      z-index: 9999;
+      display: none;
+    }
+    .floating-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 12px;
+      border: 2px solid #333;
+      box-shadow: 0 0 15px rgba(0, 224, 198, 0.7);
+    }
+    .floating-footer {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #1f1f1f, #292929);
+      padding: 10px 25px;
+      border-radius: 12px;
+      border: 1px solid #333;
+      color: #00e0c6;
+      font-weight: 600;
+      text-align: center;
+      z-index: 9999;
+      display: none;
+    }
+
+    /* ===== LOGOUT SCHEDULE INFO ===== */
+    #logoutScheduleInfo {
+      position: fixed;
+      top: 60px;
+      right: 20px;
+      background: rgba(255, 152, 0, 0.2);
+      color: #FF9800;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.9em;
+      border: 1px solid rgba(255, 152, 0, 0.3);
+      z-index: 9998;
+      max-width: 250px;
+      display: none;
+    }
+
+    /* ===== ANIMATIONS ===== */
+    @keyframes marquee {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-100%); }
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes spinReverse {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(-360deg); }
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.7; }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== MOBILE RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      .header-content {
+        flex-direction: column;
+        gap: 10px;
+      }
+      .header-left, .header-center, .header-right {
+        text-align: center;
+        width: 100%;
+      }
+      #logoutScheduleInfo {
+        position: static;
+        max-width: 100%;
+        margin: 10px 0;
+      }
+      header h1 {font-size: 1.5em;}
+      .floating-photo {width: 80px; height: 80px;}
+      .single-card {padding: 25px 20px;}
+      .card-value {font-size: 1.8em;}
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== LOGIN OVERLAY ===== -->
+<div id="loginOverlay" class="login-overlay">
+  <div class="login-form">
+    <h1 class="login-title">🔒 Dashboard Karyawan</h1>
+    <p class="login-subtitle">Masukkan nama dan password karyawan</p>
+    
+    <input type="text" id="namaInput" class="login-input" placeholder="Nama Karyawan" autocomplete="off">
+    <input type="password" id="passwordInput" class="login-input" placeholder="Password" autocomplete="off">
+    
+    <button onclick="handleLogin()" class="login-btn">🚀 Login</button>
+    <p id="loginError" class="error-msg">Nama atau password salah!</p>
+    
+    <div class="karyawan-list">
+      <div style="color: #00e0c6; margin-bottom: 10px;">📋 Daftar Karyawan:</div>
+      <div id="karyawanList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== LOADING OVERLAY ===== -->
+<div id="loadingOverlay">
+  <div style="text-align: center; max-width: 500px; padding: 40px; background: linear-gradient(145deg, #111, #1c1c1c); border-radius: 20px; border: 2px solid #00e0c6;">
+    <div class="loading-spinner">
+      <div style="width: 100%; height: 100%; border: 6px solid transparent; border-top-color: #00e0c6; animation: spin 1s linear infinite;"></div>
+      <div style="width: 70%; height: 70%; top: 15%; left: 15%; border: 4px solid transparent; border-bottom-color: #00fff2; animation: spinReverse 1.5s linear infinite;"></div>
+      <div style="width: 40%; height: 40%; top: 30%; left: 30%; border: 3px solid #ff6b6b; animation: pulse 2s infinite;"></div>
+    </div>
+    <h3 style="color: #00e0c6; margin-bottom: 15px;">🔄 Lagi Proses Ngeetung...</h3>
+    <p style="color: #ccc;">Delat Lagi Di Detung Ng Oban...</p>
+    <div style="width: 100%; height: 8px; background: #222; border-radius: 4px; margin: 20px 0;">
+      <div id="loadingProgress" style="width: 0%; height: 100%; background: linear-gradient(90deg, #00e0c6, #00fff2); border-radius: 4px;"></div>
+    </div>
+    <div id="loadingStats" style="color: #888; display: flex; justify-content: space-around;">
+      <div><div style="color: #00e0c6;">0</div><div>Transaksi</div></div>
+      <div><div style="color: #4CAF50;">0</div><div>Baris Data</div></div>
+      <div><div style="color: #FFD700;">0%</div><div>Progress</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== HEADER DENGAN LOGOUT ===== -->
+<header id="mainHeader">
+  <div class="header-content">
+    <div class="header-left">
+      <div class="user-info">
+        👤 <span id="loggedInUser">Karyawan</span>
+      </div>
+    </div>
+    <div class="header-center">
+      <h1 id="typewriterTitle">Yuh Detung Tane Balik</h1>
+      <p id="typewriterSubtitle">Oban Ganteng Maximal Membantu Anda</p>
+    </div>
+    <div class="header-right">
+      <button onclick="handleLogout()" class="logout-btn">🚪 Logout</button>
+    </div>
+  </div>
+</header>
+
+<!-- ===== RUNNING TEXT ===== -->
+<div class="running-text" id="runningText">
+  <div class="marquee-content">
+    <span class="marquee-span">| Selamat Bekerja Karyawan Terbaik |</span>
+    <span class="marquee-span">| Selamat Bekerja Karyawan Terbaik |</span>
+    <span class="marquee-span">| Selamat Bekerja Karyawan Terbaik |</span>
+  </div>
+</div>
+
+<!-- ===== MAIN CONTENT GRID ===== -->
+<div class="main-content" id="mainContent">
+  <!-- KOLOM 1: INPUT DATA -->
+  <div class="card input-section">
+    <h3>📄 Tempel File Sing Wis Di Copy</h3>
+    <textarea id="rawData" placeholder="Tempel Ng Kena..."></textarea>
+    <div class="button-group">
+      <button onclick="formatData()">🚀 Yuh Detung</button>
+      <button onclick="clearData()">🧹 Hapus</button>
+    </div>
+  </div>
+
+  <!-- KOLOM 2: OUTPUT HASIL -->
+  <div class="card output-section">
+    <h3>Hasile Ngko Ng Ngisor Kie ⬇️</h3>
+    <div id="formattedResult">Bismilahh Bae Semoga Ora Minus</div>
+    <div class="button-group">
+      <button onclick="copyToClipboard()">📋 Copy</button>
+      <button onclick="downloadAsText()">💾 Download</button>
+    </div>
+  </div>
+
+  <!-- KOLOM 3-4: CHAT ROOM (FULL WIDTH) -->
+  <div class="card new-section-1">
+    <h3>💬✍ Camellia Chat Room - Karyawan</h3>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+      <div id="connectionStatus" style="color: #4CAF50;">
+        <span id="statusIcon">☁️</span>
+        <span id="statusText">Connected to Cloud</span>
+      </div>
+      <div style="color: #888;">
+        💬 <span id="messageCount">0</span> pesan
+        👥 <span id="onlineUsers">1</span> online
+      </div>
+    </div>
+    
+    <div id="chatMessages">
+      <div style="color: #888; text-align: center; padding: 40px;">
+        <div style="width: 40px; height: 40px; margin: 0 auto 15px; border: 3px solid #333; border-top-color: #4CAF50; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        🔄 Loading chat dari cloud...
+      </div>
+    </div>
+    
+    <div class="chat-input-group">
+      <input type="text" id="chatInput" placeholder="Ketik pesan (Enter untuk kirim)..." maxlength="500">
+      <button onclick="sendMessage()" style="background: #4CAF50;">📨 Kirim</button>
+    </div>
+    
+    <div style="margin-top: 10px; display: flex; justify-content: space-between;">
+      <div>
+        <span id="userStatus" style="color: #00e0c6; cursor: pointer;" title="Login sebagai">
+          👤 <span id="currentUsername">Karyawan</span>
+        </span>
+        <span id="userBadge" style="margin-left: 8px; padding: 2px 6px; background: rgba(76, 175, 80, 0.2); border-radius: 10px; font-size: 0.7em;">
+          Online
+        </span>
+      </div>
+      <div>
+        <button onclick="clearChat()" style="padding: 5px 10px; background: #ff6b6b;">🧹 Clear</button>
+        <button onclick="exportChat()" style="padding: 5px 10px; background: #2196F3;">📥 Export</button>
+        <button onclick="refreshChat()" style="padding: 5px 10px; background: #FF9800;">🔄 Refresh</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== LOGOUT SCHEDULE INFO ===== -->
+<div id="logoutScheduleInfo"></div>
+
+<!-- ===== FLOATING ELEMENTS ===== -->
+<div class="floating-photo" id="floatingPhoto">
+  <img src="images/20250802_120649.jpg" alt="Foto Floating" onerror="this.style.display='none'">
+</div>
+<footer class="floating-footer" id="floatingFooter">
+  <p>Powered by Oban Ganteng | Dashboard Karyawan v3.0 | Auto Logout: 07:00, 14:00, 21:00</p>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
